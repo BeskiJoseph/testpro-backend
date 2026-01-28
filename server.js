@@ -321,6 +321,38 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
+// ============================================
+// Media Proxy (Solves Client SSL/CORS Issues)
+// ============================================
+app.get('/api/proxy', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'URL parameter missing' });
+    }
+
+    console.log(`🔗 Proxying: ${targetUrl}`);
+
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(targetUrl);
+
+    if (!response.ok) {
+      return res.status(response.status).send(`Failed to fetch media: ${response.statusText}`);
+    }
+
+    // Forward Headers
+    res.setHeader('Content-Type', response.headers.get('content-type'));
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+    // Pipe data
+    response.body.pipe(res);
+
+  } catch (error) {
+    console.error('Proxy failed:', error);
+    res.status(500).end();
+  }
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
