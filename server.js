@@ -331,12 +331,14 @@ app.get('/api/proxy', async (req, res) => {
       return res.status(400).json({ error: 'URL parameter missing' });
     }
 
+    // Basic safety check (important)
+    if (!targetUrl.startsWith('https://')) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+
     console.log(`🔗 Proxying: ${targetUrl}`);
 
-    const fetch = (await import('node-fetch')).default;
-
-    // R2 / Cloudflare requires SNI. Custom HTTPS Agents often break SNI.
-    // We revert to standard fetch but use a real browser User-Agent.
+    // Use Native Node.js Fetch (Undici)
     const response = await fetch(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -351,11 +353,15 @@ app.get('/api/proxy', async (req, res) => {
     }
 
     // Forward Headers
-    res.setHeader('Content-Type', response.headers.get('content-type'));
+    if (response.headers.has('content-type')) {
+      res.setHeader('Content-Type', response.headers.get('content-type'));
+    }
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
 
-    // Pipe data
-    response.body.pipe(res);
+    // Pipe web stream to node response (Correct Way for Native Fetch)
+    const { Readable } = await import('stream');
+    // @ts-ignore
+    Readable.fromWeb(response.body).pipe(res);
 
   } catch (error) {
     console.error('Proxy failed:', error);
@@ -397,4 +403,3 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST /api/upload/profile`);
   console.log(`   POST /api/upload/post`);
 });
-
