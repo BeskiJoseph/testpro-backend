@@ -333,10 +333,26 @@ app.get('/api/proxy', async (req, res) => {
 
     console.log(`🔗 Proxying: ${targetUrl}`);
 
+    // Import HTTPS explicitly
+    const https = (await import('https')).default;
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(targetUrl);
+
+    // Create a permissive Agent to avoid Handshake failures with R2
+    const agent = new https.Agent({
+      rejectUnauthorized: false, // Bypass strict SSL validation (Handshake fixes)
+      keepAlive: true
+    });
+
+    const response = await fetch(targetUrl, {
+      agent: agent,
+      headers: {
+        'User-Agent': 'TestPro-Backend/1.0', // Cloudflare requires User-Agent
+        'Accept': '*/*'
+      }
+    });
 
     if (!response.ok) {
+      console.error(`Proxy upstream error: ${response.status} ${response.statusText}`);
       return res.status(response.status).send(`Failed to fetch media: ${response.statusText}`);
     }
 
