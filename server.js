@@ -333,21 +333,15 @@ app.get('/api/proxy', async (req, res) => {
 
     console.log(`🔗 Proxying: ${targetUrl}`);
 
-    // Import HTTPS explicitly
-    const https = (await import('https')).default;
     const fetch = (await import('node-fetch')).default;
 
-    // Create a permissive Agent to avoid Handshake failures with R2
-    const agent = new https.Agent({
-      rejectUnauthorized: false, // Bypass strict SSL validation (Handshake fixes)
-      keepAlive: true
-    });
-
+    // R2 / Cloudflare requires SNI. Custom HTTPS Agents often break SNI.
+    // We revert to standard fetch but use a real browser User-Agent.
     const response = await fetch(targetUrl, {
-      agent: agent,
       headers: {
-        'User-Agent': 'TestPro-Backend/1.0', // Cloudflare requires User-Agent
-        'Accept': '*/*'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br'
       }
     });
 
